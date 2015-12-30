@@ -69,8 +69,8 @@ PERL	:= perl
 # Compiler flags
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
-CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O1 -fno-builtin -I$(TOP) -MD 
-CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
+CFLAGS := $(CFLAGS) $(DEFS) $(LABDEFS) -O1 -fno-builtin -I$(TOP) -MD
+CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32 -fno-omit-frame-pointer
 
 # Add -fno-stack-protector if the option exists.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
@@ -117,13 +117,13 @@ bochs: $(IMAGES)
 
 # For deleting the build
 clean:
-	rm -rf $(OBJDIR)
+	@rm -rf $(OBJDIR)
 
 realclean: clean
-	rm -rf lab$(LAB).tar.gz bochs.out bochs.log
+	@rm -rf lab$(LAB).tar.gz bochs.out bochs.log
 
 distclean: realclean
-	rm -rf conf/gcc.mk
+	@rm -rf conf/gcc.mk
 
 grade: $(LABSETUP)grade.sh
 	$(V)$(MAKE) clean >/dev/null 2>/dev/null
@@ -132,10 +132,10 @@ grade: $(LABSETUP)grade.sh
 
 handin: tarball
 	@echo Please visit http://pdos.csail.mit.edu/cgi-bin/828handin
-	@echo and upload lab$(LAB)-handin.tar.gz.  Thanks!
+	@echo and upload U201315021-孙志伟-lab$(LAB).tar.gz.  Thanks!
 
 tarball: realclean
-	tar cf - `find . -type f | grep -v '^\.*$$' | grep -v '/CVS/' | grep -v '/\.svn/' | grep -v 'lab[0-9].*\.tar\.gz'` | gzip > lab$(LAB)-handin.tar.gz
+	@tar cf - `find . -type f | grep -v '^\.*$$' | grep -v '/CVS/' | grep -v '/\.svn/' | grep -v 'lab[0-9].*\.tar\.gz'` | gzip > U201315021-孙志伟-lab$(LAB).tar.gz
 
 # For test runs
 run-%:

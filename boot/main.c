@@ -8,16 +8,16 @@
  * DISK LAYOUT
  *  * This program(boot.S and main.c) is the bootloader.  It should
  *    be stored in the first sector of the disk.
- * 
+ *
  *  * The 2nd sector onward holds the kernel image.
- *	
+ *
  *  * The kernel image must be in ELF format.
  *
- * BOOT UP STEPS	
+ * BOOT UP STEPS
  *  * when the CPU boots it loads the BIOS into memory and executes it
  *
  *  * the BIOS intializes devices, sets of the interrupt routines, and
- *    reads the first sector of the boot device(e.g., hard-drive) 
+ *    reads the first sector of the boot device(e.g., hard-drive)
  *    into memory and jumps to it.
  *
  *  * Assuming this boot loader is stored in the first sector of the
@@ -32,8 +32,8 @@
 #define SECTSIZE	512
 #define ELFHDR		((struct Elf *) 0x10000) // scratch space
 
-void readsect(void*, uint32_t);
-void readseg(uint32_t, uint32_t, uint32_t);
+static void readsect(void*, uint32_t);
+static void readseg(uint32_t, uint32_t, uint32_t);
 
 void
 bootmain(void)
@@ -66,14 +66,12 @@ bad:
 
 // Read 'count' bytes at 'offset' from kernel into virtual address 'va'.
 // Might copy more than asked
-void
-readseg(uint32_t va, uint32_t count, uint32_t offset)
-{
+static void readseg(uint32_t va, uint32_t count, uint32_t offset) {
 	uint32_t end_va;
 
 	va &= 0xFFFFFF;
 	end_va = va + count;
-	
+
 	// round down to sector boundary
 	va &= ~(SECTSIZE - 1);
 
@@ -98,9 +96,7 @@ waitdisk(void)
 		/* do nothing */;
 }
 
-void
-readsect(void *dst, uint32_t offset)
-{
+static void readsect(void *dst, uint32_t offset) {
 	// wait for disk to be ready
 	waitdisk();
 
@@ -117,4 +113,3 @@ readsect(void *dst, uint32_t offset)
 	// read a sector
 	insl(0x1F0, dst, SECTSIZE/4);
 }
-

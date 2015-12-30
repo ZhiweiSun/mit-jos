@@ -26,7 +26,7 @@ static struct Command commands[] = {
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
-unsigned read_eip();
+unsigned read_eip() __attribute__((noinline));
 
 /***** Implementations of basic kernel monitor commands *****/
 
