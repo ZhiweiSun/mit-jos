@@ -59,20 +59,38 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
     uint32_t ebp = read_ebp(), eip = read_eip();
+    int i;
+    char fn_name[20];
     while (ebp != 0) {
-        uint32_t *_ebp = (uint32_t *)ebp + 2;
-        uint32_t arg0 = _ebp[0];
-        uint32_t arg1 = _ebp[1];
-        uint32_t arg2 = _ebp[2];
-        uint32_t arg3 = _ebp[3];
+        uint32_t *_ebp = (uint32_t *)ebp + 1;
+        uint32_t arg0 = _ebp[1];
+        uint32_t arg1 = _ebp[2];
+        uint32_t arg2 = _ebp[3];
+        uint32_t arg3 = _ebp[4];
+        uint32_t arg4 = _ebp[5];
 
-        cprintf("ebp %08x eip %08x args %08x %08x %08x %08x\n",
+        struct Eipdebuginfo info;
+        debuginfo_eip(eip, &info);
+
+        for(i = 0; i < info.eip_fn_namelen; i++) {
+            fn_name[i] = info.eip_fn_name[i];
+        }
+        fn_name[i++] = '\0';
+        cprintf("%-15s:%4d %-15s", info.eip_file, info.eip_line, fn_name);
+        /*for(i = 0; i < info.eip_fn_namelen; i++) {
+            cprintf("%c", info.eip_fn_name[i]);
+        }*/
+        cprintf("+%4x\t", eip-info.eip_fn_addr);
+
+        eip = _ebp[0];
+        cprintf("ebp %08x eip %08x args %08x %08x %08x %08x %08x\n",
                     ebp,
                     eip,
                     arg0,
                     arg1,
                     arg2,
-                    arg3);
+                    arg3,
+                    arg4);
 
         ebp = ((uint32_t *)ebp)[0];
     }
