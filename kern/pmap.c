@@ -126,7 +126,7 @@ static void* boot_alloc(uint32_t n, uint32_t align) {
     v = (void *)boot_freemem;
 
     boot_freemem += n;
-    if(boot_freemem > end) {
+    if((uint32_t)boot_freemem < (uint32_t)end) {
         panic("boot_alloc: out of memory.\n");
     }
 
@@ -202,6 +202,8 @@ void i386_vm_init(void) {
 	//    - pages -- kernel RW, user NONE
 	//    - the read-only version mapped at UPAGES -- kernel R, user R
 	// Your code goes here:
+    n = ROUNDUP(npage * sizeof(struct Page), PGSIZE);
+    boot_map_segment(pgdir, UPAGES, n, PADDR(pages), PTE_P | PTE_U);
 
 
 
@@ -213,6 +215,8 @@ void i386_vm_init(void) {
 	//     * [KSTACKTOP-PTSIZE, KSTACKTOP-KSTKSIZE) -- not backed => faults
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
+    boot_map_segment(pgdir, KSTACKTOP - KSTKSIZE,
+            KSTKSIZE, PADDR(bootstack), PTE_W | PTE_P);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -222,6 +226,8 @@ void i386_vm_init(void) {
 	// we just set up the amapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+    boot_map_segment(pgdir, KERNBASE,
+            0xffffffff - KERNBASE + 1, 0, PTE_W | PTE_P);
 
 	// Check that the initial page directory has been set up correctly.
 	check_boot_pgdir();
@@ -449,12 +455,12 @@ void page_init(void) {
     for(i = IOPHYSMEM; i < EXTPHYSMEM; i += PGSIZE) {
         p_page = pa2page(i);
         LIST_REMOVE(p_page, pp_link);
-        p_page->pp_ref = 1;   
+        p_page->pp_ref = 1;
     }
-    
+
     // data structures
-    for(i = EXTPHYSMEM; i < (uint32_t)boot_freemem; i += PGSIZE) {
-        p_page = pa2page(PADDR(i));
+    for(i = EXTPHYSMEM; i < PADDR((uint32_t)boot_freemem); i += PGSIZE) {
+        p_page = pa2page(i);
         LIST_REMOVE(p_page, pp_link);
         p_page->pp_ref = 1;
     }
@@ -509,7 +515,7 @@ void page_free(struct Page *pp) {
     if(pp->pp_ref) {
         panic("page_free: ref is not equal zero.\n");
     }
-    
+
     page_initpp(pp);
     LIST_INSERT_HEAD(&page_free_list, pp, pp_link);
 }
@@ -538,10 +544,31 @@ page_decref(struct Page* pp)
 //
 // Hint: you can turn a Page * into the physical address of the
 // page it refers to with page2pa() from kern/pmap.h.
-pte_t *
-pgdir_walk(pde_t *pgdir, const void *va, int create)
-{
+pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create) {
 	// Fill this function in
+    pte_t *pt_addr_v;
+    uint32_t pde;
+    struct Page *p_page;
+
+    pde = pgdir[PDX(va)];
+    if(pde & PTE_P) {
+        pt_addr_v = (pte_t *)KADDR(PTE_ADDR(pgdir[PDX(va)]));
+        return &pt_addr_v[PTX(va)];
+    }
+    else if(!create) {
+        return NULL;
+    }
+    else {
+        if(page_alloc(&p_page) == 0) {
+            p_page->pp_ref = 1;
+            memset(KADDR(page2pa(p_page)), 0, PGSIZE);
+            pgdir[PDX(va)] = page2pa(p_page);
+            pgdir[PDX(va)] = pgdir[PDX(va)] | PTE_W | PTE_U | PTE_P;
+            pt_addr_v = (pte_t *)KADDR(PTE_ADDR(pgdir[PDX(va)]));
+
+            return &pt_addr_v[PTX(va)];
+        }
+    }
 	return NULL;
 }
 
@@ -564,11 +591,38 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 // Hint: The TA solution is implemented using pgdir_walk, page_remove,
 // and page2pa.
 //
-int
-page_insert(pde_t *pgdir, struct Page *pp, void *va, int perm)
-{
-	// Fill this function in
-	return 0;
+int page_insert(pde_t *pgdir, struct Page *pp, void *va, int perm) {
+    pte_t *pte;
+    pte = pgdir_walk(pgdir, va, 1);
+
+    // truncate 'perm' to the right bits
+    perm &= 0xfff;
+
+    if (pte == NULL) {
+        return -E_NO_MEM;
+    }
+    if (*pte & PTE_P) {
+        if (PTE_ADDR(*pte) != page2pa(pp)) {
+            // already a page mapped at 'va'
+            page_remove(pgdir, va);
+            *pte = page2pa(pp) | perm | PTE_P;
+            // the ref is incremented, because it is used in the mapping.
+            pp->pp_ref++;
+            tlb_invalidate(pgdir, va);
+        }
+        else {
+            // the same page mapped at 'va'
+            // learn from 'page_check', the permission may change
+            *pte = (*pte & 0xfffff000) | perm | PTE_P;
+        }
+    }
+    else {
+        *pte = page2pa(pp) | perm | PTE_P;
+        // the ref is incremented, because it is used in the mapping.
+        pp->pp_ref++;
+    }
+
+    return 0;
 }
 
 //
@@ -581,10 +635,20 @@ page_insert(pde_t *pgdir, struct Page *pp, void *va, int perm)
 // mapped pages.
 //
 // Hint: the TA solution uses pgdir_walk
-static void
-boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, physaddr_t pa, int perm)
-{
+static void boot_map_segment(pde_t *pgdir, uintptr_t la,
+                    size_t size, physaddr_t pa, int perm) {
 	// Fill this function in
+    pte_t *pg;
+    int i;
+
+    size = ROUNDUP(size, PGSIZE);
+    for(i = 0; i < size; i += PGSIZE) {
+        pg = pgdir_walk(pgdir, (void *)(la + i), 1);
+        if(pg == NULL) {
+            panic("boot_map_segment: some worng");
+        }
+        *pg = (pa + i) | perm | PTE_P;
+    }
 }
 
 //
@@ -597,11 +661,18 @@ boot_map_segment(pde_t *pgdir, uintptr_t la, size_t size, physaddr_t pa, int per
 //
 // Hint: the TA solution uses pgdir_walk and pa2page.
 //
-struct Page *
-page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
-{
+struct Page *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store) {
 	// Fill this function in
-	return NULL;
+    pte_t *pg;
+
+    pg = pgdir_walk(pgdir, va, 0);
+    if(pg == NULL) {
+        return 0;
+    }
+    if(pte_store) {
+        *pte_store = pg;
+    }
+    return pa2page(*pg);
 }
 
 //
@@ -619,10 +690,17 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 // Hint: The TA solution is implemented using page_lookup,
 // 	tlb_invalidate, and page_decref.
 //
-void
-page_remove(pde_t *pgdir, void *va)
-{
+void page_remove(pde_t *pgdir, void *va) {
 	// Fill this function in
+    struct Page *pg;
+    pte_t *p_pte;
+
+    pg = page_lookup(pgdir, va, &p_pte);
+    if(pg && p_pte) {
+        page_decref(pg);
+        *p_pte = 0;
+        tlb_invalidate(pgdir, va);
+    }
 }
 
 //
