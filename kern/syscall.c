@@ -19,7 +19,7 @@ sys_cputs(const char *s, size_t len)
 {
 	// Check that the user has permission to read memory [s, s+len).
 	// Destroy the environment if not.
-	
+
 	// LAB 3: Your code here.
 
 	// Print the string supplied by the user.
@@ -72,13 +72,31 @@ sys_env_destroy(envid_t envid)
 
 
 // Dispatches to the correct kernel function, passing the arguments.
-int32_t
-syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
-{
+int32_t syscall(uint32_t syscallno, uint32_t a1,
+    uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5) {
 	// Call the function corresponding to the 'syscallno' parameter.
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
+    int32_t result = 0 ;
 
-	panic("syscall not implemented");
+    switch(syscallno) {
+        case SYS_cputs:
+            sys_cputs((const char *)a1, (size_t)a2);
+            break;
+        case SYS_cgetc:
+            result = sys_cgetc();
+            break;
+        case SYS_getenvid:
+            result = sys_getenvid();
+            break;
+        case SYS_env_destroy:
+            result = sys_env_destroy((envid_t)a1);
+            break;
+        default:
+            // NSYSCALLS
+            // maybe return 0
+            result = 0;
+    }
+
+    return result;
 }
-

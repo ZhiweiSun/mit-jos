@@ -149,7 +149,7 @@ static void* boot_alloc(uint32_t n, uint32_t align) {
 void i386_vm_init(void) {
 	pde_t* pgdir;
 	uint32_t cr0;
-	size_t n;
+	size_t page_size, env_size;
 
 
 	//////////////////////////////////////////////////////////////////////
@@ -179,13 +179,15 @@ void i386_vm_init(void) {
 	// programs will get read-only access to the array as well.
 	// You must allocate the array yourself.
 	// Your code goes here:
-    pages = boot_alloc((npage * sizeof(struct Page)), PGSIZE);
+    page_size = ROUNDUP(npage * sizeof(struct Page), PGSIZE);
+    pages = boot_alloc(page_size, PGSIZE);
 
 
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
-
+    env_size = ROUNDUP(NENV * sizeof(struct Env), PGSIZE);
+    envs = boot_alloc(page_size, PGSIZE);
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
@@ -207,8 +209,7 @@ void i386_vm_init(void) {
 	//    - pages -- kernel RW, user NONE
 	//    - the read-only version mapped at UPAGES -- kernel R, user R
 	// Your code goes here:
-    n = ROUNDUP(npage * sizeof(struct Page), PGSIZE);
-    boot_map_segment(pgdir, UPAGES, n, PADDR(pages), PTE_P | PTE_U);
+    boot_map_segment(pgdir, UPAGES, page_size, PADDR(pages), PTE_P | PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -747,12 +748,39 @@ static uintptr_t user_mem_check_addr;
 // Returns 0 if the user program can access this range of addresses,
 // and -E_FAULT otherwise.
 //
-int
-user_mem_check(struct Env *env, const void *va, size_t len, int perm)
-{
-	// LAB 3: Your code here. 
+int user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
+    // LAB 3: Your code here.
+    unsigned int vastart, vaend;
+    pte_t *pte;
 
-	return 0;
+    perm |= PTE_P;
+    user_mem_check_addr = (uintptr_t)va;
+
+    vastart = ROUNDDOWN((unsigned int)va, PGSIZE);
+    vaend = ROUNDUP((unsigned int)(va + len), PGSIZE);
+
+    while (vastart < vaend) {
+        // check whether the address is below ULIM
+        // if not return -E_FAULT
+        if(vastart >= ULIM) {
+            return -E_FAULT;
+        }
+
+        // check the page table permission
+        pte = pgdir_walk(env->env_pgdir, (void *)vastart, 0);
+        if (!pte) {
+            return -E_FAULT;
+        }
+
+        if((*pte & perm) != perm) {
+            return -E_FAULT;
+        }
+
+        vastart += PGSIZE;
+        user_mem_check_addr = vastart;
+    }
+
+    return 0;
 }
 
 //
