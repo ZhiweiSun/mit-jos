@@ -280,7 +280,8 @@ static void load_icode(struct Env *e, uint8_t *binary, size_t size) {
 
     old_cr3 = rcr3();
     env_elf = (struct Elf *)binary;
-
+    lcr3(PADDR(e->env_pgdir));
+    
     // is this a valid ELF?
     if (env_elf->e_magic != ELF_MAGIC) {
         panic("load_icode: a valid ELF!\n");

@@ -44,20 +44,18 @@
 TRAPHANDLER_NOEC(divzero_error, T_DIVIDE);
 TRAPHANDLER_NOEC(debug, T_DEBUG);
 TRAPHANDLER_NOEC(nmi, T_NMI);
-TRAPHANDLER_NOEC(breakpoint, T_BRKPT);
+TRAPHANDLER_NOEC(break_point, T_BRKPT);
 TRAPHANDLER_NOEC(overflow, T_OFLOW);
 TRAPHANDLER_NOEC(bound_check, T_BOUND);
 TRAPHANDLER_NOEC(illegal_opcode, T_ILLOP);
 TRAPHANDLER_NOEC(device_not_available, T_DEVICE);
 TRAPHANDLER_NOEC(floating_point_error, T_FPERR);
-
-TRAPHANDLER(machine_check, T_MCHK);
-TRAPHANDLER(simd_loating_point_error, T_SIMDERR);
+TRAPHANDLER_NOEC(machine_check, T_MCHK);
+TRAPHANDLER_NOEC(simd_loating_point_error, T_SIMDERR);
 
 TRAPHANDLER_NOEC(syscall_entry, T_SYSCALL);
 
-TRAPHANDLER_NOEC(double_faulty, T_DBLFLT);
-
+TRAPHANDLER(double_faulty, T_DBLFLT);
 TRAPHANDLER(invalid_TSS, T_TSS);
 TRAPHANDLER(segment_not_present, T_SEGNP);
 TRAPHANDLER(stack_exception, T_STACK);

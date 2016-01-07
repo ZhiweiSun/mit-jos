@@ -58,7 +58,7 @@ void idt_init(void) {
     extern void divzero_error();
     extern void debug();
     extern void nmi();
-    extern void breakpoint();
+    extern void break_point();
     extern void overflow();
     extern void bound_check();
     extern void illegal_opcode();
@@ -81,8 +81,8 @@ void idt_init(void) {
     SETGATE(idt[T_DIVIDE],  0, GD_KT, divzero_error,            0);
     SETGATE(idt[T_DEBUG],   0, GD_KT, debug,                    0);
     SETGATE(idt[T_NMI],     0, GD_KT, nmi,                      0);
-    SETGATE(idt[T_BRKPT],   0, GD_KT, breakpoint,               3);
-    SETGATE(idt[T_OFLOW],   0, GD_KT, overflow,                 0);
+    SETGATE(idt[T_BRKPT],   1, GD_KT, break_point,              3);
+    SETGATE(idt[T_OFLOW],   1, GD_KT, overflow,                 0);
     SETGATE(idt[T_BOUND],   0, GD_KT, bound_check,              0);
     SETGATE(idt[T_ILLOP],   0, GD_KT, illegal_opcode,           0);
     SETGATE(idt[T_DEVICE],  0, GD_KT, device_not_available,     0);
