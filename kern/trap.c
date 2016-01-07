@@ -155,6 +155,8 @@ print_regs(struct PushRegs *regs)
 static void trap_dispatch(struct Trapframe *tf) {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+    // Handle clock and serial interrupts.
+    // LAB 4: Your code here.
     switch(tf->tf_trapno) {
         case T_BRKPT:
             monitor(tf);
