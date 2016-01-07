@@ -10,6 +10,8 @@
 #include <kern/kclock.h>
 #include <kern/env.h>
 #include <kern/trap.h>
+#include <kern/sched.h>
+#include <kern/picirq.h>
 
 
 void
