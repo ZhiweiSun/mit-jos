@@ -14,13 +14,12 @@
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
-static void
-sys_cputs(const char *s, size_t len)
-{
+static void sys_cputs(const char *s, size_t len) {
 	// Check that the user has permission to read memory [s, s+len).
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
+    user_mem_assert(curenv, (void *)s, len, PTE_U);
 
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
@@ -95,7 +94,7 @@ int32_t syscall(uint32_t syscallno, uint32_t a1,
         default:
             // NSYSCALLS
             // maybe return 0
-            result = 0;
+            result = -E_INVAL;
     }
 
     return result;

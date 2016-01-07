@@ -187,7 +187,7 @@ void i386_vm_init(void) {
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
     env_size = ROUNDUP(NENV * sizeof(struct Env), PGSIZE);
-    envs = boot_alloc(page_size, PGSIZE);
+    envs = boot_alloc(env_size, PGSIZE);
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
@@ -217,7 +217,9 @@ void i386_vm_init(void) {
 	// Permissions:
 	//    - envs itself -- kernel RW, user NONE
 	//    - the image of envs mapped at UENVS  -- kernel R, user R
-
+    boot_map_segment(pgdir, UENVS,
+        ROUNDUP(NENV * sizeof(struct Env), PGSIZE),
+        PADDR((uintptr_t)envs), PTE_U | PTE_P);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the kernel stack (symbol name "bootstack").  The complete VA
@@ -379,8 +381,10 @@ check_boot_pgdir(void)
 
     // check envs array (new test for lab 3)
     n = ROUNDUP(NENV*sizeof(struct Env), PGSIZE);
-    for (i = 0; i < n; i += PGSIZE)
+    for(i = 0; i < n; i += PGSIZE) {
+        //cprintf("%d\n", i);
         assert(check_va2pa(pgdir, UENVS + i) == PADDR(envs) + i);
+    }
 
 	// check phys mem
 	for (i = 0; i < npage; i += PGSIZE)

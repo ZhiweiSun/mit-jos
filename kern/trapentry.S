@@ -50,19 +50,20 @@ TRAPHANDLER_NOEC(bound_check, T_BOUND);
 TRAPHANDLER_NOEC(illegal_opcode, T_ILLOP);
 TRAPHANDLER_NOEC(device_not_available, T_DEVICE);
 TRAPHANDLER_NOEC(floating_point_error, T_FPERR);
-TRAPHANDLER_NOEC(machine_check, T_MCHK);
-TRAPHANDLER_NOEC(simd_loating_point_error, T_SIMDERR);
+
+TRAPHANDLER(machine_check, T_MCHK);
+TRAPHANDLER(simd_loating_point_error, T_SIMDERR);
 
 TRAPHANDLER_NOEC(syscall_entry, T_SYSCALL);
 
-TRAPHANDLER(double_faulty, T_DBLFLT);
+TRAPHANDLER_NOEC(double_faulty, T_DBLFLT);
+
 TRAPHANDLER(invalid_TSS, T_TSS);
 TRAPHANDLER(segment_not_present, T_SEGNP);
 TRAPHANDLER(stack_exception, T_STACK);
 TRAPHANDLER(general_protection_fault, T_GPFLT);
 TRAPHANDLER(page_fault, T_PGFLT);
 TRAPHANDLER(alignment_check, T_ALIGN);
-
 
 /*
  * Lab 3: Your code here for _alltraps
@@ -71,23 +72,12 @@ _alltraps:
     pushl %ds
     pushl %es
     pushal
-    movl $GD_KD, %eax
-    movw %ax, %ds
-    movw %ax, %es
-    // disable FL_IF in %eflags, i.e. disable interrupts
-    pushfl
-    popl %eax
-    movl $FL_IF, %ebx
-    notl %ebx
-    andl %ebx, %eax
-    pushl %eax
-    popfl
-    // end of disabling FL_IF
+    movl $GD_KD,%eax
+    movw %ax,%ds
+    movw %ax,%es
     pushl %esp
-
-    # call trap(tf), where tf=%esp
     call trap
-    pop %esp
+    popl %esp
     popal
     popl %es
     popl %ds

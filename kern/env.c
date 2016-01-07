@@ -70,8 +70,8 @@ void env_init(void) {
     // LAB 3: Your code here.
     int i;
 
-    LIST_INIT(&env_free_list);
-    for(i = NENV - 1; i >= 0; --i) {
+    //LIST_INIT(&env_free_list);
+    for(i = NENV - 1; i >= 0; i--) {
         envs[i].env_id = 0;
         LIST_INSERT_HEAD(&env_free_list, &envs[i], env_link);
     }
@@ -204,8 +204,8 @@ static void segment_alloc(struct Env *e, void *va, size_t len) {
     struct Page *p;
     void *va_;      // va_end
 
-    va_ = va + len;
-    va = ROUNDUP(va, PGSIZE);
+    va = ROUNDDOWN(va, PGSIZE);
+    va_ = va + ROUNDUP(len, PGSIZE);
     while(va < va_) {
         if(page_alloc(&p) != 0) {
             panic("segment_alloc: page alloc fail!");
@@ -274,9 +274,11 @@ static void load_icode(struct Env *e, uint8_t *binary, size_t size) {
 	// LAB 3: Your code here.
     struct Page *p;
     struct Proghdr *ph;
-    int r, ph_num;
+    int ph_num;
+    unsigned int old_cr3;
     struct Elf *env_elf;
 
+    old_cr3 = rcr3();
     env_elf = (struct Elf *)binary;
 
     // is this a valid ELF?
@@ -285,7 +287,7 @@ static void load_icode(struct Env *e, uint8_t *binary, size_t size) {
     }
 
     ph = (struct Proghdr *)(binary + env_elf->e_phoff);
-    ph_num = ((struct Elf *)binary)->e_phnum;
+    ph_num = env_elf->e_phnum;
 
     while(--ph_num >= 0) {
         if(ph->p_type == ELF_PROG_LOAD) {
@@ -312,6 +314,7 @@ static void load_icode(struct Env *e, uint8_t *binary, size_t size) {
             PTE_W | PTE_U) != 0) {
         panic("load_icode: page insert fail!");
     }
+    lcr3(old_cr3);
 }
 
 //
@@ -443,8 +446,8 @@ void env_run(struct Env *e) {
 
 	// LAB 3: Your code here.
     curenv = e;
-    e->env_runs++;
-    lcr3(e->env_cr3);
+    curenv->env_runs++;
+    lcr3(curenv->env_cr3);
 
-    env_pop_tf(&e->env_tf);
+    env_pop_tf(&(curenv->env_tf));
 }

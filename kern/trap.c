@@ -1,4 +1,4 @@
-#include <inc/mmu.h>
+// #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
 
@@ -78,33 +78,30 @@ void idt_init(void) {
     extern void alignment_check();
 
 	// LAB 3: Your code here.
-    SETGATE(idt[T_DIVIDE],  1, GD_KT, divzero_error,            0);
-    SETGATE(idt[T_DEBUG],   1, GD_KT, debug,                    0);
-    SETGATE(idt[T_NMI],     1, GD_KT, nmi,                      0);
-    SETGATE(idt[T_BRKPT],   1, GD_KT, breakpoint,               3);
-    SETGATE(idt[T_OFLOW],   1, GD_KT, overflow,                 0);
-    SETGATE(idt[T_BOUND],   1, GD_KT, bound_check,              0);
-    SETGATE(idt[T_ILLOP],   1, GD_KT, illegal_opcode,           0);
-    SETGATE(idt[T_DEVICE],  1, GD_KT, device_not_available,     0);
-    SETGATE(idt[T_FPERR],   1, GD_KT, floating_point_error,     0);
-    SETGATE(idt[T_MCHK],    1, GD_KT, machine_check,            0);
-    SETGATE(idt[T_SIMDERR], 1, GD_KT, simd_loating_point_error, 0);
+    SETGATE(idt[T_DIVIDE],  0, GD_KT, divzero_error,            0);
+    SETGATE(idt[T_DEBUG],   0, GD_KT, debug,                    0);
+    SETGATE(idt[T_NMI],     0, GD_KT, nmi,                      0);
+    SETGATE(idt[T_BRKPT],   0, GD_KT, breakpoint,               3);
+    SETGATE(idt[T_OFLOW],   0, GD_KT, overflow,                 0);
+    SETGATE(idt[T_BOUND],   0, GD_KT, bound_check,              0);
+    SETGATE(idt[T_ILLOP],   0, GD_KT, illegal_opcode,           0);
+    SETGATE(idt[T_DEVICE],  0, GD_KT, device_not_available,     0);
+    SETGATE(idt[T_FPERR],   0, GD_KT, floating_point_error,     0);
+    SETGATE(idt[T_MCHK],    0, GD_KT, machine_check,            0);
+    SETGATE(idt[T_SIMDERR], 0, GD_KT, simd_loating_point_error, 0);
 
-    SETGATE(idt[T_SYSCALL], 1, GD_KT, syscall_entry,            3);
-
-
-    SETGATE(idt[T_DBLFLT],  1, GD_KT, double_faulty,            0);
-    SETGATE(idt[T_TSS],     1, GD_KT, invalid_TSS,              0);
-    SETGATE(idt[T_SEGNP],   1, GD_KT, segment_not_present,      0);
-    SETGATE(idt[T_STACK],   1, GD_KT, stack_exception,          0);
-    SETGATE(idt[T_GPFLT],   1, GD_KT, general_protection_fault, 0);
-    SETGATE(idt[T_PGFLT],   1, GD_KT, page_fault,               0);
-    SETGATE(idt[T_ALIGN],   1, GD_KT, alignment_check,          0);
+    SETGATE(idt[T_SYSCALL], 0, GD_KT, syscall_entry,            3);
 
 
-	// LAB 3: Your code here.
+    SETGATE(idt[T_DBLFLT],  0, GD_KT, double_faulty,            0);
+    SETGATE(idt[T_TSS],     0, GD_KT, invalid_TSS,              0);
+    SETGATE(idt[T_SEGNP],   0, GD_KT, segment_not_present,      0);
+    SETGATE(idt[T_STACK],   0, GD_KT, stack_exception,          0);
+    SETGATE(idt[T_GPFLT],   0, GD_KT, general_protection_fault, 0);
+    SETGATE(idt[T_PGFLT],   0, GD_KT, page_fault,               0);
+    SETGATE(idt[T_ALIGN],   0, GD_KT, alignment_check,          0);
 
-	// Setup a TSS so that we get the right stack
+    // Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
 	ts.ts_esp0 = KSTACKTOP;
 	ts.ts_ss0 = GD_KD;
@@ -126,7 +123,7 @@ print_trapframe(struct Trapframe *tf)
 {
 	cprintf("TRAP frame at %p\n", tf);
 	print_regs(&tf->tf_regs);
-	cprintf("  es   0x----%04x\n", tf->tf_es);
+    cprintf("  es   0x----%04x\n", tf->tf_es);
 	cprintf("  ds   0x----%04x\n", tf->tf_ds);
 	cprintf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
 	cprintf("  err  0x%08x\n", tf->tf_err);
@@ -156,10 +153,10 @@ static void trap_dispatch(struct Trapframe *tf) {
     switch(tf->tf_trapno) {
         case T_BRKPT:
             monitor(tf);
-            break;
+            return;
         case T_PGFLT:
             page_fault_handler(tf);
-            break;
+            return;
         case T_SYSCALL:
             tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax,
                                     tf->tf_regs.reg_edx,
@@ -167,7 +164,7 @@ static void trap_dispatch(struct Trapframe *tf) {
                                     tf->tf_regs.reg_ebx,
                                     tf->tf_regs.reg_edi,
                                     tf->tf_regs.reg_esi);
-            break;
+            return;
     }
 
 	// Unexpected trap: The user process or the kernel has a bug.
@@ -205,9 +202,7 @@ trap(struct Trapframe *tf)
 }
 
 
-void
-page_fault_handler(struct Trapframe *tf)
-{
+void page_fault_handler(struct Trapframe *tf) {
 	uint32_t fault_va;
 
 	// Read processor's CR2 register to find the faulting address
@@ -216,6 +211,9 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+    if((tf->tf_cs & 3) == 0) {
+        panic("page_fault_handler: kernel-mode page faults");
+    }
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
